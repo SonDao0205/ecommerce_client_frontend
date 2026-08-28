@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Check, ChevronRight, Heart, Minus, Plus, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + 
 const isVideo = (url: string) => /\/video\/upload\/|\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
 
 export function ProductDetailView({ product, related }: { product: StorefrontProduct; related: StorefrontProduct[] }) {
+  const orderIdempotencyKey = useRef(crypto.randomUUID());
   const { user } = useAuth();
   const { addItem } = useCart();
   const media = useMemo(() => Array.from(new Set([product.thumbnailUrl, ...(product.images ?? [])].filter(Boolean) as string[])), [product]);
@@ -90,20 +91,24 @@ export function ProductDetailView({ product, related }: { product: StorefrontPro
       toast.error("Bạn cần đăng nhập để mua ngay");
       return;
     }
+    orderIdempotencyKey.current = crypto.randomUUID();
     setCheckoutOpen(true);
   }
 
   async function buyNow(recipient: OrderRecipientPayload) {
     setIsOrdering(true);
     try {
-      const order = await orderService.buyNow({
-        ...recipient,
-        productId: product.id,
-        productSku: product.sku,
-        variantId: selectedVariant?.id,
-        variantSku: selectedVariant?.sku ?? undefined,
-        quantity,
-      });
+      const order = await orderService.buyNow(
+        {
+          ...recipient,
+          productId: product.id,
+          productSku: product.sku,
+          variantId: selectedVariant?.id,
+          variantSku: selectedVariant?.sku ?? undefined,
+          quantity,
+        },
+        orderIdempotencyKey.current,
+      );
       toast.success("Đặt hàng thành công", {
         description: `Mã đơn hàng: ${order.orderCode}`,
       });

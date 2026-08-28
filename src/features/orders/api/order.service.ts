@@ -13,12 +13,16 @@ export class OrderService extends BaseApiService {
     super(httpClient, "/orders");
   }
 
-  createFromCart(payload: OrderRecipientPayload): Promise<Order> {
-    return this.post<Order>("from-cart", payload);
+  createFromCart(payload: OrderRecipientPayload, idempotencyKey: string): Promise<Order> {
+    return this.post<Order>("from-cart", payload, {
+      headers: { "Idempotency-Key": idempotencyKey },
+    });
   }
 
-  buyNow(payload: BuyNowOrderPayload): Promise<Order> {
-    return this.post<Order>("buy-now", payload);
+  buyNow(payload: BuyNowOrderPayload, idempotencyKey: string): Promise<Order> {
+    return this.post<Order>("buy-now", payload, {
+      headers: { "Idempotency-Key": idempotencyKey },
+    });
   }
 
   getMyOrders(query: { page?: number; limit?: number; status?: OrderStatus } = {}): Promise<PaginatedData<OrderSummary>> {

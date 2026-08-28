@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/src/core/api";
@@ -16,6 +16,7 @@ import type { OrderRecipientPayload } from "@/src/features/orders/types/order";
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + "₫";
 
 export function CartPageView() {
+  const orderIdempotencyKey = useRef(crypto.randomUUID());
   const { user } = useAuth();
   const { items, totalAmount, totalQuantity, isLoading, updateItem, removeItem, clearCart, resetCart } = useCart();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -49,13 +50,14 @@ export function CartPageView() {
       toast.error("Bạn cần đăng nhập để đặt hàng");
       return;
     }
+    orderIdempotencyKey.current = crypto.randomUUID();
     setCheckoutOpen(true);
   }
 
   async function createOrder(payload: OrderRecipientPayload) {
     setOrdering(true);
     try {
-      const order = await orderService.createFromCart(payload);
+      const order = await orderService.createFromCart(payload, orderIdempotencyKey.current);
       resetCart();
       toast.success("Đặt hàng thành công", {
         description: `Mã đơn hàng: ${order.orderCode}`,
