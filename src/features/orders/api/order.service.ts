@@ -5,6 +5,8 @@ import type {
   OrderRecipientPayload,
   OrderStatus,
   OrderSummary,
+  VoucherPreview,
+  VoucherPreviewPayload,
 } from "../types/order";
 import type { PaginatedData } from "@/src/types/api";
 
@@ -13,7 +15,10 @@ export class OrderService extends BaseApiService {
     super(httpClient, "/orders");
   }
 
-  createFromCart(payload: OrderRecipientPayload, idempotencyKey: string): Promise<Order> {
+  createFromCart(
+    payload: OrderRecipientPayload,
+    idempotencyKey: string,
+  ): Promise<Order> {
     return this.post<Order>("from-cart", payload, {
       headers: { "Idempotency-Key": idempotencyKey },
     });
@@ -25,13 +30,21 @@ export class OrderService extends BaseApiService {
     });
   }
 
-  getMyOrders(query: { page?: number; limit?: number; status?: OrderStatus } = {}): Promise<PaginatedData<OrderSummary>> {
+  previewVoucher(payload: VoucherPreviewPayload): Promise<VoucherPreview> {
+    return this.post<VoucherPreview>("voucher-preview", payload);
+  }
+
+  getMyOrders(
+    query: { page?: number; limit?: number; status?: OrderStatus } = {},
+  ): Promise<PaginatedData<OrderSummary>> {
     const params = new URLSearchParams();
     Object.entries(query).forEach(([key, value]) => {
       if (value !== undefined) params.set(key, String(value));
     });
     const suffix = params.size ? `?${params.toString()}` : "";
-    return this.get<PaginatedData<OrderSummary>>(`my${suffix}`, { cache: "no-store" });
+    return this.get<PaginatedData<OrderSummary>>(`my${suffix}`, {
+      cache: "no-store",
+    });
   }
 
   getMyOrder(id: string): Promise<Order> {
@@ -42,14 +55,22 @@ export class OrderService extends BaseApiService {
     return this.patch<Order>(`my/${id}/cancel`, { reason });
   }
 
-  async requestReturn(id: string, reason: string, files: File[]): Promise<Order> {
-    if (files.length > 6) throw new ApiError("Chỉ được chọn tối đa 6 media", 400);
+  async requestReturn(
+    id: string,
+    reason: string,
+    files: File[],
+  ): Promise<Order> {
+    if (files.length > 6)
+      throw new ApiError("Chỉ được chọn tối đa 6 media", 400);
     files.forEach((file) => {
       const isImage = file.type.startsWith("image/");
       const isVideo = file.type.startsWith("video/");
       const limit = isVideo ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
       if ((!isImage && !isVideo) || file.size > limit) {
-        throw new ApiError(`${file.name}: ảnh tối đa 5 MB, video tối đa 50 MB`, 400);
+        throw new ApiError(
+          `${file.name}: ảnh tối đa 5 MB, video tối đa 50 MB`,
+          400,
+        );
       }
     });
 
@@ -59,7 +80,9 @@ export class OrderService extends BaseApiService {
         const signature = await httpClient.post<CloudinarySignature>(
           "/cloudinary/return-evidence/upload-signature",
         );
-        const results = new Array<ReturnEvidenceAsset | undefined>(files.length);
+        const results = new Array<ReturnEvidenceAsset | undefined>(
+          files.length,
+        );
         const failedIndexes: number[] = [];
         let cursor = 0;
         await Promise.all(
@@ -67,18 +90,29 @@ export class OrderService extends BaseApiService {
             while (cursor < files.length) {
               const index = cursor++;
               try {
-                results[index] = await this.uploadEvidence(files[index], signature);
+                results[index] = await this.uploadEvidence(
+                  files[index],
+                  signature,
+                );
               } catch {
                 failedIndexes.push(index);
               }
             }
           }),
         );
-        uploaded.push(...results.filter((item): item is ReturnEvidenceAsset => Boolean(item)));
+        uploaded.push(
+          ...results.filter((item): item is ReturnEvidenceAsset =>
+            Boolean(item),
+          ),
+        );
         if (failedIndexes.length) {
-          throw new ApiError("Một hoặc nhiều media minh chứng tải lên thất bại", 502, {
-            failedIndexes: failedIndexes.sort((left, right) => left - right),
-          });
+          throw new ApiError(
+            "Một hoặc nhiều media minh chứng tải lên thất bại",
+            502,
+            {
+              failedIndexes: failedIndexes.sort((left, right) => left - right),
+            },
+          );
         }
       }
       return await this.patch<Order>(`my/${id}/return-request`, {
@@ -93,7 +127,10 @@ export class OrderService extends BaseApiService {
     }
   }
 
-  private async uploadEvidence(file: File, signature: CloudinarySignature): Promise<ReturnEvidenceAsset> {
+  private async uploadEvidence(
+    file: File,
+    signature: CloudinarySignature,
+  ): Promise<ReturnEvidenceAsset> {
     const body = new FormData();
     body.append("file", file);
     body.append("api_key", signature.apiKey);
@@ -121,7 +158,10 @@ export class OrderService extends BaseApiService {
     if (!assets.length) return;
     try {
       await httpClient.post<null>("/cloudinary/return-evidence/cleanup", {
-        assets: assets.map(({ publicId, resourceType }) => ({ publicId, resourceType })),
+        assets: assets.map(({ publicId, resourceType }) => ({
+          publicId,
+          resourceType,
+        })),
       });
     } catch {
       // Cleanup là best effort, giữ nguyên lỗi gốc của upload/yêu cầu hoàn trả.

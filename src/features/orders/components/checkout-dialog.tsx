@@ -53,7 +53,9 @@ function CheckoutDialogContent({
   const [recipientPhone, setRecipientPhone] = useState(user?.phone ?? "");
   const [shippingAddress, setShippingAddress] = useState("");
   const [note, setNote] = useState("");
-  const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
+  const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(
+    null,
+  );
   const [saveForLater, setSaveForLater] = useState(true);
   const [loadingAddress, setLoadingAddress] = useState(true);
   const [savingAddress, setSavingAddress] = useState(false);
@@ -108,10 +110,17 @@ function CheckoutDialogContent({
           setSavingAddress(true);
           try {
             await customerAddressService.saveDefault(addressPayload);
-            toast.success(savedAddress ? "Đã cập nhật hồ sơ giao hàng" : "Đã lưu hồ sơ giao hàng");
+            toast.success(
+              savedAddress
+                ? "Đã cập nhật hồ sơ giao hàng"
+                : "Đã lưu hồ sơ giao hàng",
+            );
           } catch (error) {
             toast.warning("Đơn hàng đã tạo nhưng chưa lưu được hồ sơ", {
-              description: error instanceof ApiError ? error.message : "Bạn có thể lưu lại trong trang Hồ sơ.",
+              description:
+                error instanceof ApiError
+                  ? error.message
+                  : "Bạn có thể lưu lại trong trang Hồ sơ.",
             });
           } finally {
             setSavingAddress(false);
@@ -135,11 +144,13 @@ function CheckoutDialogContent({
       note: note.trim() || undefined,
     };
     const nextErrors: Record<string, string> = {};
-    if (!payload.recipientName) nextErrors.recipientName = "Vui lòng nhập tên người nhận.";
+    if (!payload.recipientName)
+      nextErrors.recipientName = "Vui lòng nhập tên người nhận.";
     if (!/^(?:\+84|0)\d{9,10}$/.test(payload.recipientPhone)) {
       nextErrors.recipientPhone = "Số điện thoại không đúng định dạng.";
     }
-    if (!payload.shippingAddress) nextErrors.shippingAddress = "Vui lòng nhập địa chỉ nhận hàng.";
+    if (!payload.shippingAddress)
+      nextErrors.shippingAddress = "Vui lòng nhập địa chỉ nhận hàng.";
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
     setSubmitting(true);
@@ -183,8 +194,17 @@ function CheckoutDialogContent({
           </Button>
         </div>
 
-        <form className="mt-5 space-y-4" noValidate onSubmit={(event) => void submit(event)}>
-          {loadingAddress && <p className="flex items-center gap-2 text-xs text-muted-foreground"><LoaderCircle className="size-3.5 animate-spin" /> Đang tải thông tin đã lưu...</p>}
+        <form
+          className="mt-5 space-y-4"
+          noValidate
+          onSubmit={(event) => void submit(event)}
+        >
+          {loadingAddress && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <LoaderCircle className="size-3.5 animate-spin" /> Đang tải thông
+              tin đã lưu...
+            </p>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1.5 text-sm font-medium">
               Tên người nhận
@@ -192,9 +212,16 @@ function CheckoutDialogContent({
                 maxLength={150}
                 disabled={busy || loadingAddress}
                 value={recipientName}
-                onChange={(event) => { setRecipientName(event.target.value); setErrors((value) => ({ ...value, recipientName: "" })); }}
+                onChange={(event) => {
+                  setRecipientName(event.target.value);
+                  setErrors((value) => ({ ...value, recipientName: "" }));
+                }}
               />
-              {errors.recipientName && <span className="block text-xs font-normal text-red-600">{errors.recipientName}</span>}
+              {errors.recipientName && (
+                <span className="block text-xs font-normal text-red-600">
+                  {errors.recipientName}
+                </span>
+              )}
             </label>
             <label className="space-y-1.5 text-sm font-medium">
               Số điện thoại
@@ -202,9 +229,16 @@ function CheckoutDialogContent({
                 maxLength={20}
                 disabled={busy || loadingAddress}
                 value={recipientPhone}
-                onChange={(event) => { setRecipientPhone(event.target.value); setErrors((value) => ({ ...value, recipientPhone: "" })); }}
+                onChange={(event) => {
+                  setRecipientPhone(event.target.value);
+                  setErrors((value) => ({ ...value, recipientPhone: "" }));
+                }}
               />
-              {errors.recipientPhone && <span className="block text-xs font-normal text-red-600">{errors.recipientPhone}</span>}
+              {errors.recipientPhone && (
+                <span className="block text-xs font-normal text-red-600">
+                  {errors.recipientPhone}
+                </span>
+              )}
             </label>
           </div>
           <label className="block space-y-1.5 text-sm font-medium">
@@ -213,13 +247,23 @@ function CheckoutDialogContent({
               maxLength={1000}
               disabled={busy || loadingAddress}
               value={shippingAddress}
-              onChange={(event) => { setShippingAddress(event.target.value); setErrors((value) => ({ ...value, shippingAddress: "" })); }}
+              onChange={(event) => {
+                setShippingAddress(event.target.value);
+                setErrors((value) => ({ ...value, shippingAddress: "" }));
+              }}
               className="min-h-24 w-full resize-y rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:border-[#ff5a1f] focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
             />
-            {errors.shippingAddress && <span className="block text-xs font-normal text-red-600">{errors.shippingAddress}</span>}
+            {errors.shippingAddress && (
+              <span className="block text-xs font-normal text-red-600">
+                {errors.shippingAddress}
+              </span>
+            )}
           </label>
           <label className="block space-y-1.5 text-sm font-medium">
-            Ghi chú <span className="font-normal text-muted-foreground">(không bắt buộc)</span>
+            Ghi chú{" "}
+            <span className="font-normal text-muted-foreground">
+              (không bắt buộc)
+            </span>
             <textarea
               maxLength={1000}
               disabled={busy}
@@ -239,10 +283,21 @@ function CheckoutDialogContent({
             >
               {saveForLater && <Check className="size-3.5" />}
             </button>
-            <span><strong className="block">Lưu thông tin cho lần mua sau</strong><span className="mt-0.5 block text-xs font-normal text-muted-foreground">Tên, số điện thoại và địa chỉ này sẽ tự động điền ở lần đặt hàng tiếp theo.</span></span>
+            <span>
+              <strong className="block">Lưu thông tin cho lần mua sau</strong>
+              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                Tên, số điện thoại và địa chỉ này sẽ tự động điền ở lần đặt hàng
+                tiếp theo.
+              </span>
+            </span>
           </label>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={onClose}
+            >
               Hủy
             </Button>
             <Button
@@ -251,7 +306,13 @@ function CheckoutDialogContent({
               className="bg-[#ff5a1f] text-white hover:bg-[#e94b13]"
             >
               {busy && <LoaderCircle className="animate-spin" />}
-              {savingAddress ? "Đang lưu hồ sơ..." : pending ? "Đang tạo đơn..." : submitting ? "Đang xác nhận..." : "Xác nhận đặt hàng"}
+              {savingAddress
+                ? "Đang lưu hồ sơ..."
+                : pending
+                  ? "Đang tạo đơn..."
+                  : submitting
+                    ? "Đang xác nhận..."
+                    : "Xác nhận đặt hàng"}
             </Button>
           </div>
         </form>
@@ -275,9 +336,13 @@ function hasAddressChanged(
 ): boolean {
   if (!savedAddress) return true;
   return (
-    normalizeComparable(savedAddress.recipientName) !== normalizeComparable(payload.recipientName) ||
-    normalizeComparable(savedAddress.phone) !== normalizeComparable(payload.phone) ||
-    normalizeComparable(savedAddress.email).toLowerCase() !== normalizeComparable(payload.email).toLowerCase() ||
-    normalizeComparable(savedAddress.address) !== normalizeComparable(payload.address)
+    normalizeComparable(savedAddress.recipientName) !==
+      normalizeComparable(payload.recipientName) ||
+    normalizeComparable(savedAddress.phone) !==
+      normalizeComparable(payload.phone) ||
+    normalizeComparable(savedAddress.email).toLowerCase() !==
+      normalizeComparable(payload.email).toLowerCase() ||
+    normalizeComparable(savedAddress.address) !==
+      normalizeComparable(payload.address)
   );
 }

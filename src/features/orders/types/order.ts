@@ -3,6 +3,7 @@ export interface OrderRecipientPayload {
   recipientPhone: string;
   shippingAddress: string;
   note?: string;
+  voucherCode?: string;
 }
 
 export interface BuyNowOrderPayload extends OrderRecipientPayload {
@@ -74,4 +75,21 @@ export interface OrderSummary {
 
 export interface Order extends Omit<OrderSummary, "itemCount"> {
   items: OrderItem[];
+}
+
+export interface VoucherPreview {
+  code: string;
+  subtotalAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+}
+
+export interface VoucherPreviewPayload {
+  code: string;
+  mode: "cart" | "buy_now";
+  productId?: string;
+  productSku?: string;
+  variantId?: string;
+  variantSku?: string;
+  quantity?: number;
 }
