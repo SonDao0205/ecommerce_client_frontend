@@ -115,6 +115,7 @@ function CheckoutDialogContent({
         await customerAddressService.saveDefault({
           recipientName: payload.recipientName,
           phone: payload.recipientPhone,
+          email: savedAddress?.email ?? user?.email ?? undefined,
           address: payload.shippingAddress,
           isDefault: true,
         });

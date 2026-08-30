@@ -3,6 +3,7 @@ export interface CustomerAddress {
   userId: string;
   recipientName: string;
   phone: string;
+  email: string | null;
   address: string;
   isDefault: boolean;
   createdAt: string;
@@ -12,6 +13,7 @@ export interface CustomerAddress {
 export interface CustomerAddressPayload {
   recipientName: string;
   phone: string;
+  email?: string;
   address: string;
   isDefault?: boolean;
 }
