@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/src/core/api";
 import { useAuth } from "@/src/providers/storefront-provider";
+import { useDebouncedCallback } from "@/src/hooks/use-debounced-callback";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^(?:\+?84|0)\d{9,10}$/;
@@ -28,20 +29,9 @@ export function CustomerLoginForm() {
     if (user) router.replace("/");
   }, [user, router]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    const normalizedIdentifier = normalizeIdentifier(identifier);
-    const nextIdentifierError = validateIdentifier(normalizedIdentifier);
-    const nextPasswordError = password ? null : "Vui lòng nhập mật khẩu.";
-    setIdentifierError(nextIdentifierError);
-    setPasswordError(nextPasswordError);
-    if (nextIdentifierError || nextPasswordError) {
-      return;
-    }
-    setIsSubmitting(true);
+  const submitLogin = useDebouncedCallback(async (normalizedIdentifier: string, submittedPassword: string) => {
     try {
-      const authUser = await login({ identifier: normalizedIdentifier, password });
+      const authUser = await login({ identifier: normalizedIdentifier, password: submittedPassword });
       toast.success("Đăng nhập thành công", {
         description: `Xin chào ${authUser.fullName ?? authUser.email}. Giỏ hàng khách đang được đồng bộ.`,
       });
@@ -51,6 +41,20 @@ export function CustomerLoginForm() {
     } finally {
       setIsSubmitting(false);
     }
+  }, 400);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isSubmitting) return;
+    setError(null);
+    const normalizedIdentifier = normalizeIdentifier(identifier);
+    const nextIdentifierError = validateIdentifier(normalizedIdentifier);
+    const nextPasswordError = password ? null : "Vui lòng nhập mật khẩu.";
+    setIdentifierError(nextIdentifierError);
+    setPasswordError(nextPasswordError);
+    if (nextIdentifierError || nextPasswordError) return;
+    setIsSubmitting(true);
+    submitLogin(normalizedIdentifier, password);
   }
 
   if (isLoading || user) {

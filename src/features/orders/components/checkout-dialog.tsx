@@ -9,6 +9,7 @@ import { ApiError } from "@/src/core/api";
 import type { AuthUser } from "@/src/features/auth/types/auth";
 import { customerAddressService } from "@/src/features/customer-addresses/api/customer-address.service";
 import type { CustomerAddress } from "@/src/features/customer-addresses/types/customer-address";
+import { useDebouncedCallback } from "@/src/hooks/use-debounced-callback";
 import type { OrderRecipientPayload } from "../types/order";
 
 interface CheckoutDialogProps {
@@ -56,8 +57,9 @@ function CheckoutDialogContent({
   const [saveForLater, setSaveForLater] = useState(true);
   const [loadingAddress, setLoadingAddress] = useState(true);
   const [savingAddress, setSavingAddress] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const busy = Boolean(pending || savingAddress);
+  const busy = Boolean(pending || savingAddress || submitting);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,8 +91,43 @@ function CheckoutDialogContent({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [busy, onClose]);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  const confirmOrder = useDebouncedCallback(
+    async (payload: OrderRecipientPayload) => {
+      try {
+        const orderCreated = await onConfirm(payload);
+        if (!orderCreated) return;
+
+        const addressPayload = {
+          recipientName: payload.recipientName,
+          phone: payload.recipientPhone,
+          email: savedAddress?.email ?? user?.email ?? undefined,
+          address: payload.shippingAddress,
+          isDefault: true,
+        };
+        if (saveForLater && hasAddressChanged(savedAddress, addressPayload)) {
+          setSavingAddress(true);
+          try {
+            await customerAddressService.saveDefault(addressPayload);
+            toast.success(savedAddress ? "Đã cập nhật hồ sơ giao hàng" : "Đã lưu hồ sơ giao hàng");
+          } catch (error) {
+            toast.warning("Đơn hàng đã tạo nhưng chưa lưu được hồ sơ", {
+              description: error instanceof ApiError ? error.message : "Bạn có thể lưu lại trong trang Hồ sơ.",
+            });
+          } finally {
+            setSavingAddress(false);
+          }
+        }
+        onClose();
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    400,
+  );
+
+  function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const payload = {
       recipientName: recipientName.trim(),
       recipientPhone: recipientPhone.trim(),
@@ -105,30 +142,8 @@ function CheckoutDialogContent({
     if (!payload.shippingAddress) nextErrors.shippingAddress = "Vui lòng nhập địa chỉ nhận hàng.";
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
-
-    const orderCreated = await onConfirm(payload);
-    if (!orderCreated) return;
-
-    if (saveForLater) {
-      setSavingAddress(true);
-      try {
-        await customerAddressService.saveDefault({
-          recipientName: payload.recipientName,
-          phone: payload.recipientPhone,
-          email: savedAddress?.email ?? user?.email ?? undefined,
-          address: payload.shippingAddress,
-          isDefault: true,
-        });
-        toast.success(savedAddress ? "Đã cập nhật hồ sơ giao hàng" : "Đã lưu hồ sơ giao hàng");
-      } catch (error) {
-        toast.warning("Đơn hàng đã tạo nhưng chưa lưu được hồ sơ", {
-          description: error instanceof ApiError ? error.message : "Bạn có thể lưu lại trong trang Hồ sơ.",
-        });
-      } finally {
-        setSavingAddress(false);
-      }
-    }
-    onClose();
+    setSubmitting(true);
+    confirmOrder(payload);
   }
 
   return (
@@ -236,11 +251,33 @@ function CheckoutDialogContent({
               className="bg-[#ff5a1f] text-white hover:bg-[#e94b13]"
             >
               {busy && <LoaderCircle className="animate-spin" />}
-              {savingAddress ? "Đang lưu hồ sơ..." : pending ? "Đang tạo đơn..." : "Xác nhận đặt hàng"}
+              {savingAddress ? "Đang lưu hồ sơ..." : pending ? "Đang tạo đơn..." : submitting ? "Đang xác nhận..." : "Xác nhận đặt hàng"}
             </Button>
           </div>
         </form>
       </div>
     </div>
+  );
+}
+
+function normalizeComparable(value?: string | null): string {
+  return (value ?? "").trim();
+}
+
+function hasAddressChanged(
+  savedAddress: CustomerAddress | null,
+  payload: {
+    recipientName: string;
+    phone: string;
+    email?: string;
+    address: string;
+  },
+): boolean {
+  if (!savedAddress) return true;
+  return (
+    normalizeComparable(savedAddress.recipientName) !== normalizeComparable(payload.recipientName) ||
+    normalizeComparable(savedAddress.phone) !== normalizeComparable(payload.phone) ||
+    normalizeComparable(savedAddress.email).toLowerCase() !== normalizeComparable(payload.email).toLowerCase() ||
+    normalizeComparable(savedAddress.address) !== normalizeComparable(payload.address)
   );
 }

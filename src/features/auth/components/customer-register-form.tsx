@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/src/core/api";
 import { useAuth } from "@/src/providers/storefront-provider";
+import { useDebouncedCallback } from "@/src/hooks/use-debounced-callback";
 
 type RegisterField = "fullName" | "phone" | "email" | "password" | "confirmPassword";
 type RegisterErrors = Partial<Record<RegisterField, string>>;
@@ -33,29 +34,14 @@ export function CustomerRegisterForm() {
     if (user) router.replace("/");
   }, [user, router]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    const errors = validateRegisterForm({
-      fullName,
-      phone,
-      email,
-      password,
-      confirmPassword,
-    });
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      return;
-    }
-
-    setIsSubmitting(true);
+  const submitRegistration = useDebouncedCallback(async (payload: {
+    fullName: string;
+    phone: string;
+    email?: string;
+    password: string;
+  }) => {
     try {
-      const authUser = await register({
-        fullName: fullName.trim(),
-        phone: phone.trim().replace(/[\s.-]/g, ""),
-        email: email.trim() || undefined,
-        password,
-      });
+      const authUser = await register(payload);
       toast.success("Đăng ký thành công", {
         description: `Xin chào ${authUser.fullName ?? authUser.email}.`,
       });
@@ -69,6 +55,28 @@ export function CustomerRegisterForm() {
     } finally {
       setIsSubmitting(false);
     }
+  }, 400);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isSubmitting) return;
+    setError(null);
+    const errors = validateRegisterForm({
+      fullName,
+      phone,
+      email,
+      password,
+      confirmPassword,
+    });
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    setIsSubmitting(true);
+    submitRegistration({
+      fullName: fullName.trim(),
+      phone: phone.trim().replace(/[\s.-]/g, ""),
+      email: email.trim() || undefined,
+      password,
+    });
   }
 
   if (isLoading || user) {

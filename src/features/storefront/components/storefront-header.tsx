@@ -3,31 +3,43 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
+import { useState } from "react";
 import { Heart, LogOut, MapPinHouse, Menu, PackageSearch, Search, ShoppingBag, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth, useCart } from "@/src/providers/storefront-provider";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/src/components/common/confirm-dialog";
+import { useDebouncedCallback } from "@/src/hooks/use-debounced-callback";
 
 export function StorefrontHeader({ query = "" }: { query?: string }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { totalQuantity } = useCart();
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [logoutPending, setLogoutPending] = useState(false);
+  const navigateSearch = useDebouncedCallback((value: string) => {
+    router.push(value ? `/?q=${encodeURIComponent(value)}` : "/", { scroll: false });
+  }, 350);
 
   async function handleLogout() {
-    await logout();
-    toast.success("Đã đăng xuất", { description: "Giỏ hàng trên thiết bị đã được làm trống." });
+    setLogoutPending(true);
+    try {
+      await logout();
+      setLogoutOpen(false);
+      toast.success("Đã đăng xuất", { description: "Giỏ hàng trên thiết bị đã được làm trống." });
+    } finally {
+      setLogoutPending(false);
+    }
   }
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = String(new FormData(event.currentTarget).get("q") ?? "").trim();
-    router.push(value ? `/?q=${encodeURIComponent(value)}` : "/", {
-      scroll: false,
-    });
+    navigateSearch(value);
   }
 
-  return (
+  return <>
     <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-18 max-w-7xl items-center gap-3 px-4 lg:px-6">
         <Link href="/" className="shrink-0 text-2xl font-black tracking-tight text-[#ff5a1f]">ShopNow</Link>
@@ -46,7 +58,7 @@ export function StorefrontHeader({ query = "" }: { query?: string }) {
             <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/profile" />}><MapPinHouse /> Hồ sơ</Button>
             <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/orders" />}><PackageSearch /> Đơn hàng</Button>
             <span className="max-w-28 truncate px-2 text-xs font-medium">{user.fullName ?? user.email}</span>
-            <Button variant="ghost" size="icon-sm" aria-label="Đăng xuất" onClick={() => void handleLogout()}><LogOut /></Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Đăng xuất" onClick={() => setLogoutOpen(true)}><LogOut /></Button>
           </> : (
             <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/login" />}><UserRound /> Đăng nhập</Button>
           )}
@@ -62,9 +74,19 @@ export function StorefrontHeader({ query = "" }: { query?: string }) {
           <Link href="/cart" className="lg:hidden">Giỏ hàng ({totalQuantity})</Link>
           {user && <Link href="/orders" className="lg:hidden">Đơn hàng của tôi</Link>}
           {user && <Link href="/profile" className="lg:hidden">Hồ sơ giao hàng</Link>}
+          {user && <button type="button" className="cursor-pointer text-red-600 lg:hidden" onClick={() => setLogoutOpen(true)}>Đăng xuất</button>}
           {!user && <Link href="/login" className="lg:hidden">Đăng nhập</Link>}
         </nav>
       </div>
     </header>
-  );
+    <ConfirmDialog
+      open={logoutOpen}
+      onOpenChange={setLogoutOpen}
+      title="Xác nhận đăng xuất"
+      description="Bạn có chắc muốn đăng xuất? Giỏ hàng hiển thị trên thiết bị này sẽ được làm trống."
+      confirmLabel="Đăng xuất"
+      pending={logoutPending}
+      onConfirm={handleLogout}
+    />
+  </>;
 }
