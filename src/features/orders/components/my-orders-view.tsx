@@ -14,6 +14,7 @@ import {
   ReceiptText,
   RefreshCw,
   RotateCcw,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -27,6 +28,8 @@ import type { PaginationMeta } from "@/src/types/api";
 import { useAuth } from "@/src/providers/storefront-provider";
 import { useDebouncedCallback } from "@/src/hooks/use-debounced-callback";
 import { cn } from "@/lib/utils";
+import { ReviewFormDialog } from "@/src/features/reviews/components/review-form-dialog";
+import type { OrderItem } from "../types/order";
 
 const statusConfig: Record<OrderStatus, { label: string; className: string }> =
   {
@@ -95,6 +98,7 @@ export function MyOrdersView() {
     order: OrderSummary;
   }>();
   const [actionPending, setActionPending] = useState(false);
+  const [reviewItem, setReviewItem] = useState<OrderItem>();
 
   const loadOrders = useCallback(async () => {
     if (!user) return;
@@ -359,6 +363,7 @@ export function MyOrdersView() {
           onClose={() => {
             if (!detailLoading) setDetail(undefined);
           }}
+          onReview={setReviewItem}
         />
       )}
       {action && (
@@ -370,6 +375,26 @@ export function MyOrdersView() {
             if (!actionPending) setAction(undefined);
           }}
           onSubmit={submitAction}
+        />
+      )}
+      {reviewItem && (
+        <ReviewFormDialog
+          item={reviewItem}
+          onClose={() => setReviewItem(undefined)}
+          onCreated={(review) => {
+            setDetail((current) =>
+              current
+                ? {
+                    ...current,
+                    items: current.items.map((item) =>
+                      item.id === reviewItem.id
+                        ? { ...item, reviewId: review.id }
+                        : item,
+                    ),
+                  }
+                : current,
+            );
+          }}
         />
       )}
     </div>
@@ -402,10 +427,12 @@ function OrderDetailDialog({
   order,
   loading,
   onClose,
+  onReview,
 }: {
   order?: Order;
   loading: boolean;
   onClose: () => void;
+  onReview: (item: OrderItem) => void;
 }) {
   return (
     <div
@@ -506,7 +533,24 @@ function OrderDetailDialog({
                       {item.quantity} × {money(item.unitPrice)}
                     </p>
                   </div>
-                  <strong>{money(item.subtotal)}</strong>
+                  <div className="flex items-center gap-3">
+                    <strong>{money(item.subtotal)}</strong>
+                    {order.status === "completed" &&
+                      item.productId &&
+                      (item.reviewId ? (
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                          Đã đánh giá
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onReview(item)}
+                        >
+                          <Star /> Đánh giá
+                        </Button>
+                      ))}
+                  </div>
                 </div>
               ))}
             </div>

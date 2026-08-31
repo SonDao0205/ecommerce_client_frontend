@@ -25,6 +25,7 @@ export interface OrderItem {
   unitPrice: number;
   quantity: number;
   subtotal: number;
+  reviewId: string | null;
 }
 
 export type OrderStatus =

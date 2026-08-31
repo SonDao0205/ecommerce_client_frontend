@@ -25,6 +25,7 @@ import { StorefrontHeader } from "./storefront-header";
 import { useAuth, useCart } from "@/src/providers/storefront-provider";
 import { ApiError } from "@/src/core/api";
 import { checkoutIntentStorage } from "@/src/features/orders/checkout-intent";
+import { ProductReviewsPreview } from "@/src/features/reviews/components/review-list";
 
 const money = (value: number) =>
   new Intl.NumberFormat("vi-VN").format(value) + "₫";
@@ -366,6 +367,7 @@ export function ProductDetailView({
             dangerouslySetInnerHTML={{ __html: product.description ?? "" }}
           />
         </section>
+        <ProductReviewsPreview slug={product.slug} />
         <section className="mt-5 rounded-2xl border bg-white p-5">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-xl font-bold">Sản phẩm liên quan</h2>
