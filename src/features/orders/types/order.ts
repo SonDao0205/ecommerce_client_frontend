@@ -4,6 +4,43 @@ export interface OrderRecipientPayload {
   shippingAddress: string;
   note?: string;
   voucherCode?: string;
+  paymentMethod?: PaymentMethod;
+}
+
+export type PaymentMethod = "cod" | "sepay_bank_transfer";
+export type PaymentStatus =
+  | "pending"
+  | "success"
+  | "failed"
+  | "cancelled"
+  | "expired"
+  | "review_required"
+  | "refunded";
+
+export interface Payment {
+  id: string;
+  orderId: string;
+  amount: number;
+  status: PaymentStatus;
+  provider: "cod" | "sepay" | "mock" | "stripe" | "vnpay";
+  method: PaymentMethod | "sepay_card" | "sepay_napas";
+  invoiceNumber: string;
+  providerOrderId: string | null;
+  transactionId: string | null;
+  currency: string;
+  attemptNumber: number;
+  expiresAt: string | null;
+  paidAt: string | null;
+  failedAt: string | null;
+  cancelledAt: string | null;
+  lastVerifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SepayCheckout {
+  actionUrl: string;
+  fields: Record<string, string>;
 }
 
 export interface BuyNowOrderPayload extends OrderRecipientPayload {
@@ -72,10 +109,12 @@ export interface OrderSummary {
   createdAt: string;
   updatedAt: string;
   itemCount: number;
+  payment: Payment | null;
 }
 
 export interface Order extends Omit<OrderSummary, "itemCount"> {
   items: OrderItem[];
+  checkout?: SepayCheckout | null;
 }
 
 export interface VoucherPreview {

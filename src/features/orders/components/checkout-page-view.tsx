@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Check,
+  Banknote,
+  Landmark,
   LoaderCircle,
   MapPin,
   Minus,
@@ -12,7 +14,14 @@ import {
   Tag,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +37,8 @@ import {
 import { orderService } from "@/src/features/orders/api/order.service";
 import type {
   OrderRecipientPayload,
+  PaymentMethod,
+  SepayCheckout,
   VoucherPreview,
 } from "@/src/features/orders/types/order";
 import { useDebouncedCallback } from "@/src/hooks/use-debounced-callback";
@@ -59,6 +70,8 @@ export function CheckoutPageView() {
     null,
   );
   const [saveForLater, setSaveForLater] = useState(true);
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("cod");
   const [loadingAddress, setLoadingAddress] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [voucherCode, setVoucherCode] = useState("");
@@ -226,6 +239,13 @@ export function CheckoutPageView() {
         }
         if (mode === "cart") resetCart();
         else checkoutIntentStorage.clear();
+        if (order.checkout) {
+          toast.success("Đã tạo đơn hàng", {
+            description: "Đang chuyển đến cổng thanh toán SePay...",
+          });
+          submitSepayCheckout(order.checkout);
+          return;
+        }
         toast.success("Đặt hàng thành công", {
           description: `Mã đơn hàng: ${order.orderCode}`,
         });
@@ -254,6 +274,7 @@ export function CheckoutPageView() {
       shippingAddress: shippingAddress.trim(),
       note: note.trim() || undefined,
       ...(effectiveVoucher && { voucherCode: effectiveVoucher.code }),
+      paymentMethod,
     };
     const next: Record<string, string> = {};
     if (!payload.recipientName)
@@ -382,6 +403,27 @@ export function CheckoutPageView() {
           </label>
         </div>
         <div className="mt-5 border-t pt-5">
+          <p className="text-sm font-semibold">Phương thức thanh toán</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <PaymentChoice
+              active={paymentMethod === "cod"}
+              icon={<Banknote className="size-5" />}
+              title="Thanh toán khi nhận hàng"
+              description="Thanh toán cho nhân viên giao hàng"
+              disabled={busy}
+              onClick={() => setPaymentMethod("cod")}
+            />
+            <PaymentChoice
+              active={paymentMethod === "sepay_bank_transfer"}
+              icon={<Landmark className="size-5" />}
+              title="SePay · VietQR"
+              description="Quét QR và thanh toán trực tuyến"
+              disabled={busy}
+              onClick={() => setPaymentMethod("sepay_bank_transfer")}
+            />
+          </div>
+        </div>
+        <div className="mt-5 border-t pt-5">
           <label className="text-sm font-semibold">Mã giảm giá</label>
           <div className="mt-2 flex gap-2">
             <Input
@@ -449,11 +491,69 @@ export function CheckoutPageView() {
           className="mt-5 h-11 w-full bg-[#ff5a1f] text-white hover:bg-[#e94b13]"
         >
           {submitting && <LoaderCircle className="animate-spin" />}
-          {submitting ? "Đang tạo đơn..." : "Xác nhận đặt hàng"}
+          {submitting
+            ? "Đang tạo đơn..."
+            : paymentMethod === "sepay_bank_transfer"
+              ? "Thanh toán qua SePay"
+              : "Xác nhận đặt hàng"}
         </Button>
       </form>
     </div>
   );
+}
+
+function PaymentChoice({
+  active,
+  icon,
+  title,
+  description,
+  disabled,
+  onClick,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  title: string;
+  description: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition ${active ? "border-[#ff5a1f] bg-orange-50" : "hover:bg-zinc-50"}`}
+    >
+      <span className={active ? "text-[#ff5a1f]" : "text-zinc-500"}>
+        {icon}
+      </span>
+      <span>
+        <strong className="block text-sm">{title}</strong>
+        <span className="mt-0.5 block text-xs text-muted-foreground">
+          {description}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function submitSepayCheckout(checkout: SepayCheckout) {
+  const target = new URL(checkout.actionUrl);
+  if (!new Set(["pay.sepay.vn", "pay-sandbox.sepay.vn"]).has(target.hostname)) {
+    throw new Error("Địa chỉ thanh toán SePay không hợp lệ");
+  }
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = target.toString();
+  Object.entries(checkout.fields).forEach(([name, value]) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.appendChild(input);
+  });
+  document.body.appendChild(form);
+  form.submit();
 }
 
 function intentToLine(intent: BuyNowCheckoutIntent): CartLine {

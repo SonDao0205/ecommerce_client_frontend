@@ -23,7 +23,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/src/core/api";
 import { orderService } from "../api/order.service";
-import type { Order, OrderStatus, OrderSummary } from "../types/order";
+import type {
+  Order,
+  OrderStatus,
+  OrderSummary,
+  Payment,
+} from "../types/order";
 import type { PaginationMeta } from "@/src/types/api";
 import { useAuth } from "@/src/providers/storefront-provider";
 import { useDebouncedCallback } from "@/src/hooks/use-debounced-callback";
@@ -261,7 +266,10 @@ export function MyOrdersView() {
                     {dateTime(order.createdAt)}
                   </span>
                 </div>
-                <StatusBadge status={order.status} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={order.status} />
+                  {order.payment && <PaymentBadge payment={order.payment} />}
+                </div>
               </div>
               <div className="grid gap-5 p-5 md:grid-cols-[1fr_auto] md:items-center">
                 <div className="grid gap-3 text-sm sm:grid-cols-3">
@@ -419,6 +427,31 @@ function StatusBadge({ status }: { status: OrderStatus }) {
       )}
     >
       {config.label}
+    </span>
+  );
+}
+
+function PaymentBadge({ payment }: { payment: Payment }) {
+  const labels = {
+    pending: "Chờ thanh toán",
+    success: "Đã thanh toán",
+    failed: "Thanh toán lỗi",
+    cancelled: "Đã hủy thanh toán",
+    expired: "Thanh toán hết hạn",
+    review_required: "Đang đối soát",
+    refunded: "Đã hoàn tiền",
+  } as const;
+  const className =
+    payment.status === "success"
+      ? "bg-emerald-50 text-emerald-700"
+      : payment.status === "review_required"
+        ? "bg-orange-50 text-orange-700"
+        : "bg-zinc-100 text-zinc-700";
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
+      {payment.provider === "cod" && payment.status === "pending"
+        ? "Thanh toán khi nhận hàng"
+        : labels[payment.status]}
     </span>
   );
 }
