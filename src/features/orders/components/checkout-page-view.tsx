@@ -70,10 +70,10 @@ export function CheckoutPageView() {
     null,
   );
   const [saveForLater, setSaveForLater] = useState(true);
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("cod");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
   const [loadingAddress, setLoadingAddress] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [redirectingToSepay, setRedirectingToSepay] = useState(false);
   const [voucherCode, setVoucherCode] = useState("");
   const [voucher, setVoucher] = useState<VoucherPreview | null>(null);
   const [applyingVoucher, setApplyingVoucher] = useState(false);
@@ -244,6 +244,7 @@ export function CheckoutPageView() {
             description: "Đang chuyển đến cổng thanh toán SePay...",
           });
           submitSepayCheckout(order.checkout);
+          setRedirectingToSepay(true);
           return;
         }
         toast.success("Đặt hàng thành công", {
@@ -257,9 +258,10 @@ export function CheckoutPageView() {
           description:
             error instanceof ApiError ? error.message : "Vui lòng thử lại sau.",
         });
-      } finally {
+        // Only unlock on failure; successful checkout stays locked during navigation.
         submitLock.current = false;
         setSubmitting(false);
+        setRedirectingToSepay(false);
       }
     },
     400,
@@ -291,7 +293,7 @@ export function CheckoutPageView() {
   }
 
   if (authLoading || cartLoading || !intentLoaded) return <Loading />;
-  if (!lines.length) return <Empty mode={mode} />;
+  if (!lines.length && !busy) return <Empty mode={mode} />;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
@@ -488,11 +490,14 @@ export function CheckoutPageView() {
         <Button
           type="submit"
           disabled={busy || loadingAddress || applyingVoucher || voucherQueued}
+          aria-busy={submitting}
           className="mt-5 h-11 w-full bg-[#ff5a1f] text-white hover:bg-[#e94b13]"
         >
           {submitting && <LoaderCircle className="animate-spin" />}
           {submitting
-            ? "Đang tạo đơn..."
+            ? redirectingToSepay
+              ? "Đang chuyển đến SePay..."
+              : "Đang tạo đơn..."
             : paymentMethod === "sepay_bank_transfer"
               ? "Thanh toán qua SePay"
               : "Xác nhận đặt hàng"}
